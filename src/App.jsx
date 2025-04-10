@@ -1,70 +1,95 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const App = () => {
-  const [search, setSearch] = useState('');
-  const [results, setResults] = useState([]);
+  const [query, setQuery] = useState('');
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSearch = () => {
-    if (!search.trim()) return;
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await axios.get(`https://yt-search-api.vercel.app/api/search?q=How to ${query}`);
+      const items = response.data.videos;
 
-    // Temporary mock result
-    const mockVideos = [
-      {
-        title: 'How to use Notion for Productivity',
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      },
-      {
-        title: 'How to automate tasks with ChatGPT',
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      },
-    ];
+      const filtered = items.filter(video => {
+        const views = parseInt(video.views.replace(/[^0-9]/g, '')) || 0;
+        const minutes = parseInt(video.duration.seconds) / 60;
+        const isRecent = formatDistanceToNow(new Date(video.uploadedAt), { addSuffix: false }).includes('months') ||
+                         formatDistanceToNow(new Date(video.uploadedAt), { addSuffix: false }).includes('weeks');
+        const isShort = minutes <= 15;
+        const hasHowTo = video.title.toLowerCase().startsWith('how to');
+        return views >= 40000 && isShort && hasHowTo && isRecent;
+      });
 
-    setResults(mockVideos);
+      setVideos(filtered.slice(0, 10));
+    } catch (err) {
+      setError('Failed to fetch videos. Try again later.');
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white shadow-lg rounded-xl p-8 max-w-xl w-full">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">YouTube Video Finder</h1>
-        <p className="text-gray-600 mb-6">Search videos with your custom filters</p>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">YouTube Video Finder</h1>
 
-        <div className="flex gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-4">
           <input
             type="text"
-            placeholder="e.g. How to use Notion for productivity"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g. free ai tools"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-grow p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleSearch}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            className="px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
           >
             Search
           </button>
         </div>
 
-        {/* Results */}
-        {results.length > 0 && (
-          <div className="space-y-4">
-            {results.map((video, index) => (
-              <a
-                key={index}
-                href={video.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-4 border border-gray-200 rounded-md hover:bg-gray-50"
-              >
-                <h2 className="text-md font-semibold text-blue-700">{video.title}</h2>
-                <p className="text-sm text-gray-500">{video.url}</p>
-              </a>
-            ))}
-          </div>
-        )}
+        {/* 💰 Placeholder for Ad */}
+        <div className="mb-4 p-4 bg-yellow-100 text-yellow-800 rounded text-center text-sm shadow-inner">
+          🔥 [Ad Placeholder] Promote your course, affiliate tool, or AdSense here!
+        </div>
+
+        {loading && <p className="text-center text-gray-500">Searching...</p>}
+        {error && <p className="text-center text-red-500">{error}</p>}
+
+        <div className="grid gap-4 mt-4">
+          {videos.map((video, index) => (
+            <a
+              href={video.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              key={index}
+              className="block border rounded-lg p-4 bg-white shadow hover:shadow-lg transition"
+            >
+              <div className="flex gap-4">
+                <img
+                  src={video.thumbnail}
+                  alt={video.title}
+                  className="w-32 h-20 object-cover rounded"
+                />
+                <div>
+                  <h2 className="font-semibold text-lg text-blue-700">{video.title}</h2>
+                  <p className="text-sm text-gray-600">Views: {video.views}</p>
+                  <p className="text-sm text-gray-600">Duration: {video.duration.timestamp}</p>
+                  <p className="text-sm text-gray-600">Uploaded: {video.uploadedAt}</p>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
 export default App;
-
