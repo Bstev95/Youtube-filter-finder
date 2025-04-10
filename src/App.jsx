@@ -7,7 +7,7 @@ const MAX_PAGES = 10;
 export default function App() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState('free ai tools');
+  const [query, setQuery] = useState('AI');
   const [minViews, setMinViews] = useState(1000);
   const [maxDuration, setMaxDuration] = useState(1200);
   const [maxSubs, setMaxSubs] = useState(15000);
@@ -43,7 +43,7 @@ export default function App() {
         const searchRes = await fetch(searchUrl);
         const searchData = await searchRes.json();
         const ids = searchData.items?.map(item => item.id.videoId).filter(Boolean);
-        if (ids.length === 0) break;
+        if (!ids.length) break;
         allVideoIds.push(...ids);
         nextPageToken = searchData.nextPageToken;
         if (!nextPageToken) break;
@@ -83,15 +83,14 @@ export default function App() {
         const enriched = await Promise.all(
           filtered.map(async (video) => {
             const channelId = video.snippet.channelId;
-            const channelRes = await fetch(
-              `https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&id=${channelId}&part=statistics`
-            );
+            const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&id=${channelId}&part=statistics`);
             const channelData = await channelRes.json();
             const subs = parseInt(channelData.items?.[0]?.statistics?.subscriberCount || '0');
             if (subs > maxSubs) {
               filteredOut++;
               return null;
             }
+
             return {
               title: video.snippet.title,
               url: `https://www.youtube.com/watch?v=${video.id}`,
@@ -111,82 +110,86 @@ export default function App() {
       setDebugStats({ total: allVideoIds.length, filtered: filteredOut, passed: fullVideos.length });
       setVideos(fullVideos);
     } catch (err) {
-      console.error('Failed to fetch videos:', err);
+      console.error('Search failed:', err);
     }
 
     setLoading(false);
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen py-10 px-4">
-      <div className="max-w-5xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">🎥 YouTube Video Finder</h1>
+    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans p-6">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-6 text-center">
+          <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
+            <span role="img" aria-label="camera">🎥</span> YouTube Video Finder
+          </h1>
           <p className="text-gray-600">Search YouTube with filters — niche channels, views, duration & more.</p>
         </header>
 
-        <section className="bg-white shadow-md rounded-xl p-6 mb-6">
-          <form onSubmit={(e) => { e.preventDefault(); fetchVideos(); }} className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Search Topic</label>
-                <input value={query} onChange={e => setQuery(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Min Views</label>
-                <input type="number" value={minViews} onChange={e => setMinViews(Number(e.target.value))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Max Duration (sec)</label>
-                <input type="number" value={maxDuration} onChange={e => setMaxDuration(Number(e.target.value))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Max Subscribers</label>
-                <input type="number" value={maxSubs} onChange={e => setMaxSubs(Number(e.target.value))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Published Within (days)</label>
-                <input type="number" value={publishWithinDays} onChange={e => setPublishWithinDays(Number(e.target.value))} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Blacklist Keywords</label>
-                <input value={blacklist} onChange={e => setBlacklist(e.target.value)} placeholder="e.g. whatsapp, gaming" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input type="checkbox" checked={excludeShorts} onChange={(e) => setExcludeShorts(e.target.checked)} />
-              <label className="text-sm text-gray-700">Exclude Shorts</label>
-            </div>
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-              {loading ? "Searching..." : "Search Videos"}
-            </button>
-          </form>
-        </section>
+        <div className="bg-white p-6 rounded-lg shadow-md grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Search Topic</label>
+            <input value={query} onChange={e => setQuery(e.target.value)} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Min Views</label>
+            <input type="number" value={minViews} onChange={e => setMinViews(Number(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Max Duration (sec)</label>
+            <input type="number" value={maxDuration} onChange={e => setMaxDuration(Number(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Max Subscribers</label>
+            <input type="number" value={maxSubs} onChange={e => setMaxSubs(Number(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Published Within (days)</label>
+            <input type="number" value={publishWithinDays} onChange={e => setPublishWithinDays(Number(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Blacklist Keywords</label>
+            <input value={blacklist} onChange={e => setBlacklist(e.target.value)} placeholder="e.g. whatsapp, gaming" className="w-full p-2 border rounded" />
+          </div>
+          <div className="flex items-center mt-2 col-span-full">
+            <input type="checkbox" checked={excludeShorts} onChange={e => setExcludeShorts(e.target.checked)} className="mr-2" />
+            <label className="text-sm">Exclude Shorts</label>
+          </div>
+          <button onClick={fetchVideos} disabled={loading} className="col-span-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition">
+            {loading ? 'Searching...' : 'Search Videos'}
+          </button>
+        </div>
 
-        <section className="mb-4 text-sm text-gray-600">
-          <p>Total scanned: {debugStats.total} | Filtered out: {debugStats.filtered} | Final results: {debugStats.passed}</p>
-          {debugStats.passed === 0 && !loading && (
-            <p className="text-orange-500 mt-1">⚠️ No videos matched — try loosening filters.</p>
-          )}
-        </section>
+        <div className="mt-6 text-sm text-gray-600">
+          <p>🔍 Total scanned: {debugStats.total} | Filtered out: {debugStats.filtered} | ✅ Final results: {debugStats.passed}</p>
+          {debugStats.passed === 0 && !loading && <p className="text-orange-500 mt-2">⚠️ No videos matched — try loosening filters.</p>}
+        </div>
 
-        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Monetization Ad Spot */}
+        <div className="mt-6 text-center border-t pt-4 text-xs text-gray-500">
+          <p>Ad Placeholder – insert AdSense here</p>
+        </div>
+
+        {/* Results */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
           {videos.map((v, i) => (
-            <div key={i} className="bg-white shadow rounded-xl overflow-hidden">
-              <a href={v.url} target="_blank" rel="noreferrer">
-                <img src={v.thumbnail} alt={v.title} className="w-full object-cover" />
+            <div key={i} className="bg-white shadow rounded overflow-hidden">
+              <a href={v.url} target="_blank" rel="noopener noreferrer">
+                <img src={v.thumbnail} alt={v.title} className="w-full" />
               </a>
               <div className="p-4">
-                <a href={v.url} className="text-blue-600 font-medium hover:underline" target="_blank" rel="noreferrer">{v.title}</a>
-                <p className="text-sm mt-1">📺 <strong>Channel:</strong> {v.channel}</p>
-                <p className="text-sm">👁️ {v.views.toLocaleString()} views</p>
-                <p className="text-sm">⏱️ {v.duration}</p>
-                <p className="text-sm">👥 {v.subs.toLocaleString()} subs</p>
-                <p className="text-sm">📅 {new Date(v.published).toLocaleDateString()}</p>
+                <a href={v.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 block mb-1 hover:underline">
+                  {v.title}
+                </a>
+                <p className="text-sm text-gray-600">📺 {v.channel}</p>
+                <p className="text-sm text-gray-600">👁 {v.views.toLocaleString()} views</p>
+                <p className="text-sm text-gray-600">⏱ {v.duration}</p>
+                <p className="text-sm text-gray-600">👥 {v.subs.toLocaleString()} subs</p>
+                <p className="text-sm text-gray-600">📅 {new Date(v.published).toLocaleDateString()}</p>
               </div>
             </div>
           ))}
-        </section>
+        </div>
       </div>
     </div>
   );
