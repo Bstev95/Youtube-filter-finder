@@ -120,16 +120,34 @@ export default function App() {
         <p className="text-gray-400 mb-8">Search YouTube with filters — niche channels, views, duration & more.</p>
 
         <div className="bg-gray-900 rounded-xl p-6 grid gap-4 md:grid-cols-3 mb-8">
-          <input placeholder="Search topic" className="p-2 rounded bg-gray-800 text-white" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <input type="number" placeholder="Min Views" className="p-2 rounded bg-gray-800 text-white" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} />
-          <input type="number" placeholder="Max Duration (sec)" className="p-2 rounded bg-gray-800 text-white" value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value))} />
-          <input type="number" placeholder="Max Subs" className="p-2 rounded bg-gray-800 text-white" value={maxSubs} onChange={(e) => setMaxSubs(Number(e.target.value))} />
-          <input type="number" placeholder="Published Within Days" className="p-2 rounded bg-gray-800 text-white" value={publishWithinDays} onChange={(e) => setPublishWithinDays(Number(e.target.value))} />
-          <input placeholder="Blacklist keywords (comma separated)" className="p-2 rounded bg-gray-800 text-white" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} />
-          <label className="col-span-3 flex items-center gap-2">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Search Topic</label>
+            <input placeholder="e.g. productivity tools" className="p-2 rounded bg-gray-800 text-white w-full" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Minimum Views</label>
+            <input type="number" className="p-2 rounded bg-gray-800 text-white w-full" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Maximum Duration (sec)</label>
+            <input type="number" className="p-2 rounded bg-gray-800 text-white w-full" value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Maximum Subscribers</label>
+            <input type="number" className="p-2 rounded bg-gray-800 text-white w-full" value={maxSubs} onChange={(e) => setMaxSubs(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Published Within (days)</label>
+            <input type="number" className="p-2 rounded bg-gray-800 text-white w-full" value={publishWithinDays} onChange={(e) => setPublishWithinDays(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Exclude Keywords</label>
+            <input className="p-2 rounded bg-gray-800 text-white w-full" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} placeholder="e.g. gaming, whatsapp" />
+          </div>
+          <div className="col-span-3 flex items-center gap-2">
             <input type="checkbox" checked={excludeShorts} onChange={(e) => setExcludeShorts(e.target.checked)} />
-            Exclude Shorts
-          </label>
+            <label className="text-sm">Exclude Shorts</label>
+          </div>
           <button onClick={fetchVideos} disabled={loading} className="bg-indigo-600 text-white py-2 rounded col-span-3">
             {loading ? "Searching..." : "Search Videos"}
           </button>
@@ -164,4 +182,3 @@ export default function App() {
     </div>
   );
 }
-
