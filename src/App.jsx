@@ -1,191 +1,198 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
-const API_KEY = "AIzaSyC21oRlWnNmA3MCu799mhMdxnYoxby-Lo4";
+const API_KEY = 'YOUR_API_KEY_HERE';
 const MAX_RESULTS = 50;
-const MAX_PAGES = 100;
+const MAX_PAGES = 10;
 
 export default function App() {
-  const [query, setQuery] = useState("");
-  const [minViews, setMinViews] = useState(0);
-  const [maxDuration, setMaxDuration] = useState(3600);
-  const [maxSubs, setMaxSubs] = useState(Infinity);
-  const [publishWithinDays, setPublishWithinDays] = useState(365);
-  const [blacklist, setBlacklist] = useState("");
+  const [query, setQuery] = useState('');
+  const [minViews, setMinViews] = useState('');
+  const [maxDuration, setMaxDuration] = useState('');
+  const [maxSubs, setMaxSubs] = useState('');
+  const [publishWithinDays, setPublishWithinDays] = useState('');
+  const [blacklist, setBlacklist] = useState('');
   const [excludeShorts, setExcludeShorts] = useState(false);
   const [videos, setVideos] = useState([]);
-  const [debugStats, setDebugStats] = useState({ total: 0, filtered: 0, passed: 0 });
   const [loading, setLoading] = useState(false);
-  const [recentSearches, setRecentSearches] = useState([]);
+  const [stats, setStats] = useState({ total: 0, filtered: 0, passed: 0 });
 
   const parseDuration = (d) => {
     const match = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-    const h = parseInt(match?.[1] || "0");
-    const m = parseInt(match?.[2] || "0");
-    const s = parseInt(match?.[3] || "0");
+    const h = +match?.[1] || 0, m = +match?.[2] || 0, s = +match?.[3] || 0;
     return h * 3600 + m * 60 + s;
   };
 
-  const clearFilters = () => {
-    setQuery("");
-    setMinViews(0);
-    setMaxDuration(3600);
-    setMaxSubs(Infinity);
-    setPublishWithinDays(365);
-    setBlacklist("");
-    setExcludeShorts(false);
-  };
-
-  const exportToCSV = () => {
-    const csv = [
-      ["Title", "Channel", "Views", "Duration", "Subscribers", "Published", "URL"],
-      ...videos.map(v => [v.title, v.channel, v.views, v.duration, v.subs, new Date(v.published).toLocaleDateString(), v.url])
-    ]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "youtube_results.csv";
-    a.click();
-  };
+  const formatDuration = (s) => `${Math.floor(s / 60)}m ${s % 60}s`;
 
   const fetchVideos = async () => {
-    if (!query.trim()) return alert("Please enter a search topic.");
+    if (!query.trim()) {
+      alert('Please enter a search topic.');
+      return;
+    }
 
     setLoading(true);
     setVideos([]);
-    setDebugStats({ total: 0, filtered: 0, passed: 0 });
-    setRecentSearches(prev => [query, ...prev.filter(q => q !== query)].slice(0, 5));
+    setStats({ total: 0, filtered: 0, passed: 0 });
+
+    const publishedAfter = publishWithinDays
+      ? new Date(Date.now() - +publishWithinDays * 86400000).toISOString()
+      : undefined;
+
+    const bannedWords = blacklist.toLowerCase().split(',').map(k => k.trim()).filter(Boolean);
+    let allIds = [], nextPage = '', filteredOut = 0, fullVideos = [];
 
     try {
-      const publishedAfter = new Date(Date.now() - publishWithinDays * 86400000).toISOString();
-      const bannedWords = blacklist.toLowerCase().split(",").map(w => w.trim()).filter(Boolean);
-      let allVideoIds = [], nextPageToken = "";
-
       for (let i = 0; i < MAX_PAGES; i++) {
-        const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&q=${encodeURIComponent(query)}&part=snippet&type=video&maxResults=${MAX_RESULTS}&publishedAfter=${publishedAfter}${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`;
-        const res = await fetch(searchUrl);
+        const params = new URLSearchParams({
+          key: API_KEY,
+          q: query,
+          part: 'snippet',
+          type: 'video',
+          maxResults: MAX_RESULTS,
+          ...(publishedAfter && { publishedAfter }),
+          ...(nextPage && { pageToken: nextPage })
+        });
+
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
         const data = await res.json();
-        if (!data.items) break;
-        const ids = data.items.map(i => i.id.videoId).filter(Boolean);
-        allVideoIds.push(...ids);
-        if (!data.nextPageToken) break;
-        nextPageToken = data.nextPageToken;
+        const ids = data.items?.map(item => item.id.videoId).filter(Boolean);
+        if (!ids?.length) break;
+
+        allIds.push(...ids);
+        nextPage = data.nextPageToken;
+        if (!nextPage) break;
       }
 
-      if (allVideoIds.length === 0) throw new Error("No video results.");
-
-      let finalVideos = [];
-      let filteredOut = 0;
-
-      for (let i = 0; i < allVideoIds.length; i += 50) {
-        const chunk = allVideoIds.slice(i, i + 50);
-        const detailsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${chunk.join(",")}&part=snippet,statistics,contentDetails`);
-        const detailsData = await detailsRes.json();
-
-        const filtered = await Promise.all(
-          detailsData.items.map(async (video) => {
-            const title = video.snippet.title.toLowerCase();
-            const duration = parseDuration(video.contentDetails.duration);
-            const views = parseInt(video.statistics.viewCount || "0");
-            const isShort = duration < 60 || title.includes("#shorts");
-            const isBanned = bannedWords.some(w => title.includes(w));
-
-            if (
-              views < minViews ||
-              duration > maxDuration ||
-              (excludeShorts && isShort) ||
-              isBanned
-            ) {
-              filteredOut++;
-              return null;
-            }
-
-            const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&id=${video.snippet.channelId}&part=statistics`);
-            const channelData = await channelRes.json();
-            const subs = parseInt(channelData.items?.[0]?.statistics?.subscriberCount || "0");
-            if (subs > maxSubs) {
-              filteredOut++;
-              return null;
-            }
-
-            return {
-              title: video.snippet.title,
-              url: `https://www.youtube.com/watch?v=${video.id}`,
-              thumbnail: video.snippet.thumbnails.medium.url,
-              views,
-              duration: `${Math.floor(duration / 60)}m ${duration % 60}s`,
-              subs,
-              channel: video.snippet.channelTitle,
-              published: video.snippet.publishedAt,
-            };
-          })
+      for (let i = 0; i < allIds.length; i += 50) {
+        const chunk = allIds.slice(i, i + 50);
+        const detailsRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${chunk.join(',')}&part=snippet,statistics,contentDetails`
         );
+        const details = await detailsRes.json();
 
-        finalVideos.push(...filtered.filter(Boolean));
+        const validVideos = await Promise.all(details.items.map(async (video) => {
+          const views = +video.statistics.viewCount || 0;
+          const duration = parseDuration(video.contentDetails.duration);
+          const title = video.snippet.title.toLowerCase();
+          const isShort = duration < 60 || title.includes('#shorts');
+          const isBlacklisted = bannedWords.some(word => title.includes(word));
+
+          let passed = true;
+          if (minViews && views < +minViews) passed = false;
+          if (maxDuration && duration > +maxDuration) passed = false;
+          if (excludeShorts && isShort) passed = false;
+          if (isBlacklisted) passed = false;
+
+          if (!passed) {
+            filteredOut++;
+            return null;
+          }
+
+          const channelId = video.snippet.channelId;
+          const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&id=${channelId}&part=statistics`);
+          const channelData = await channelRes.json();
+          const subs = +channelData.items?.[0]?.statistics?.subscriberCount || 0;
+
+          if (maxSubs && subs > +maxSubs) {
+            filteredOut++;
+            return null;
+          }
+
+          return {
+            title: video.snippet.title,
+            url: `https://www.youtube.com/watch?v=${video.id}`,
+            channel: video.snippet.channelTitle,
+            views,
+            duration: formatDuration(duration),
+            published: new Date(video.snippet.publishedAt).toLocaleDateString(),
+            subs,
+            thumbnail: video.snippet.thumbnails.medium.url,
+          };
+        }));
+
+        fullVideos.push(...validVideos.filter(Boolean));
       }
 
-      setDebugStats({ total: allVideoIds.length, filtered: filteredOut, passed: finalVideos.length });
-      setVideos(finalVideos);
+      setStats({ total: allIds.length, filtered: filteredOut, passed: fullVideos.length });
+      setVideos(fullVideos);
+
+      if (fullVideos.length === 0) {
+        alert('No matching videos found. Try loosening your filters.');
+      }
     } catch (err) {
-      alert("Error fetching videos: " + err.message);
+      console.error(err);
+      alert('Error fetching videos. Check your API key or try again later.');
     }
 
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans px-4 pb-10">
-      <header className="bg-gray-950 py-6 text-center shadow-md mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">📺 YouTube Benchmark Tool</h1>
-        <p className="text-gray-400 text-sm">Discover high-performing, niche YouTube content</p>
-        {recentSearches.length > 0 && (
-          <div className="mt-2 text-gray-400 text-xs">Recent: {recentSearches.map((s, i) => (
-            <button key={i} className="underline text-indigo-400 ml-2" onClick={() => setQuery(s)}>{s}</button>
-          ))}</div>
-        )}
-      </header>
-
+    <div className="min-h-screen bg-gray-900 text-white px-4 py-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-gray-900 rounded-xl p-6 grid gap-4 md:grid-cols-3 mb-6">
-          <div><label className="block text-sm text-gray-300 mb-1">Search Topic</label><input className="p-2 bg-gray-800 text-white rounded w-full" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-          <div><label className="block text-sm text-gray-300 mb-1">Minimum Views</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} /></div>
-          <div><label className="block text-sm text-gray-300 mb-1">Max Duration (seconds)</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value))} /></div>
-          <div><label className="block text-sm text-gray-300 mb-1">Max Subscribers</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={maxSubs} onChange={(e) => setMaxSubs(Number(e.target.value))} /></div>
-          <div><label className="block text-sm text-gray-300 mb-1">Published Within (days)</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={publishWithinDays} onChange={(e) => setPublishWithinDays(Number(e.target.value))} /></div>
-          <div><label className="block text-sm text-gray-300 mb-1">Exclude Keywords</label><input className="p-2 bg-gray-800 text-white rounded w-full" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} /></div>
-          <div className="col-span-3 flex items-center gap-2"><input type="checkbox" checked={excludeShorts} onChange={(e) => setExcludeShorts(e.target.checked)} /><label className="text-sm">Exclude Shorts</label></div>
-          <div className="col-span-3 flex flex-wrap gap-4">
-            <button onClick={fetchVideos} className="bg-indigo-600 text-white px-4 py-2 rounded">{loading ? "Searching..." : "Search Videos"}</button>
-            <button onClick={clearFilters} className="bg-gray-700 text-white px-4 py-2 rounded">Clear Filters</button>
-            <button onClick={exportToCSV} className="bg-green-600 text-white px-4 py-2 rounded" disabled={!videos.length}>Export CSV</button>
+        <h1 className="text-3xl font-bold mb-2">🎥 YouTube Video Finder</h1>
+        <p className="mb-6 text-gray-400">Search with filters — niche channels, views, duration & more.</p>
+
+        <div className="bg-gray-800 p-6 rounded-xl mb-8 grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block mb-1 text-sm">Search Topic</label>
+            <input value={query} onChange={e => setQuery(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm">Minimum Views</label>
+            <input value={minViews} onChange={e => setMinViews(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm">Max Duration (sec)</label>
+            <input value={maxDuration} onChange={e => setMaxDuration(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm">Max Subscribers</label>
+            <input value={maxSubs} onChange={e => setMaxSubs(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm">Published Within (days)</label>
+            <input value={publishWithinDays} onChange={e => setPublishWithinDays(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm">Exclude Keywords</label>
+            <input value={blacklist} onChange={e => setBlacklist(e.target.value)} className="w-full p-2 rounded bg-gray-700 border border-gray-600" />
+          </div>
+          <div className="col-span-3 flex items-center gap-2 mt-2">
+            <input type="checkbox" checked={excludeShorts} onChange={e => setExcludeShorts(e.target.checked)} />
+            <label>Exclude Shorts</label>
+          </div>
+          <div className="col-span-3 mt-4">
+            <button onClick={fetchVideos} disabled={loading} className="bg-purple-600 px-6 py-2 rounded hover:bg-purple-700 disabled:opacity-50">
+              {loading ? 'Searching...' : 'Search Videos'}
+            </button>
           </div>
         </div>
 
-        <div className="text-sm text-gray-400 mb-6">Scanned: {debugStats.total} | Filtered: {debugStats.filtered} | Final: {debugStats.passed}</div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {videos.map((v, i) => (
-            <a key={i} href={v.url} target="_blank" rel="noopener noreferrer" className="bg-gray-800 rounded-lg overflow-hidden shadow hover:shadow-xl transition">
-              <img src={v.thumbnail} alt={v.title} className="w-full" />
-              <div className="p-4">
-                <h2 className="text-lg font-semibold text-purple-400 mb-1">{v.title}</h2>
-                <p className="text-sm text-gray-400">📺 {v.channel}</p>
-                <p className="text-sm text-gray-400">👁️ {v.views.toLocaleString()} views</p>
-                <p className="text-sm text-gray-400">⏱️ {v.duration}</p>
-                <p className="text-sm text-gray-400">👥 {v.subs.toLocaleString()} subs</p>
-                <p className="text-sm text-gray-400">📅 {new Date(v.published).toLocaleDateString()}</p>
-              </div>
-            </a>
-          ))}
+        <div className="text-gray-400 text-sm mb-4">
+          Scanned: {stats.total} | Filtered: {stats.filtered} | Final: {stats.passed}
         </div>
-      </div>
 
-      <footer className="text-center mt-10 text-xs text-gray-500 border-t border-gray-800 pt-6">
-        <p>&copy; {new Date().getFullYear()} YouTube Benchmark Tool. Built for creators & researchers.</p>
-      </footer>
+        {videos.length > 0 && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {videos.map((v, i) => (
+              <div key={i} className="bg-gray-800 rounded-lg overflow-hidden">
+                <a href={v.url} target="_blank" rel="noopener noreferrer">
+                  <img src={v.thumbnail} alt={v.title} />
+                </a>
+                <div className="p-4">
+                  <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-purple-400 font-semibold hover:underline">{v.title}</a>
+                  <p className="text-sm mt-2">📺 {v.channel}</p>
+                  <p className="text-sm">👁️ {v.views.toLocaleString()} views</p>
+                  <p className="text-sm">⏱️ {v.duration}</p>
+                  <p className="text-sm">👥 {v.subs.toLocaleString()} subs</p>
+                  <p className="text-sm">📅 {v.published}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
