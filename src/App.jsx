@@ -148,9 +148,44 @@ export default function App() {
         )}
       </header>
 
-      {/* Filter section and buttons would go here... */}
-      {/* Videos display and footer would go here... */}
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-gray-900 rounded-xl p-6 grid gap-4 md:grid-cols-3 mb-6">
+          <div><label className="block text-sm text-gray-300 mb-1">Search Topic</label><input className="p-2 bg-gray-800 text-white rounded w-full" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          <div><label className="block text-sm text-gray-300 mb-1">Minimum Views</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} /></div>
+          <div><label className="block text-sm text-gray-300 mb-1">Max Duration (seconds)</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value))} /></div>
+          <div><label className="block text-sm text-gray-300 mb-1">Max Subscribers</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={maxSubs} onChange={(e) => setMaxSubs(Number(e.target.value))} /></div>
+          <div><label className="block text-sm text-gray-300 mb-1">Published Within (days)</label><input type="number" className="p-2 bg-gray-800 text-white rounded w-full" value={publishWithinDays} onChange={(e) => setPublishWithinDays(Number(e.target.value))} /></div>
+          <div><label className="block text-sm text-gray-300 mb-1">Exclude Keywords</label><input className="p-2 bg-gray-800 text-white rounded w-full" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} /></div>
+          <div className="col-span-3 flex items-center gap-2"><input type="checkbox" checked={excludeShorts} onChange={(e) => setExcludeShorts(e.target.checked)} /><label className="text-sm">Exclude Shorts</label></div>
+          <div className="col-span-3 flex flex-wrap gap-4">
+            <button onClick={fetchVideos} className="bg-indigo-600 text-white px-4 py-2 rounded">{loading ? "Searching..." : "Search Videos"}</button>
+            <button onClick={clearFilters} className="bg-gray-700 text-white px-4 py-2 rounded">Clear Filters</button>
+            <button onClick={exportToCSV} className="bg-green-600 text-white px-4 py-2 rounded" disabled={!videos.length}>Export CSV</button>
+          </div>
+        </div>
 
+        <div className="text-sm text-gray-400 mb-6">Scanned: {debugStats.total} | Filtered: {debugStats.filtered} | Final: {debugStats.passed}</div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {videos.map((v, i) => (
+            <a key={i} href={v.url} target="_blank" rel="noopener noreferrer" className="bg-gray-800 rounded-lg overflow-hidden shadow hover:shadow-xl transition">
+              <img src={v.thumbnail} alt={v.title} className="w-full" />
+              <div className="p-4">
+                <h2 className="text-lg font-semibold text-purple-400 mb-1">{v.title}</h2>
+                <p className="text-sm text-gray-400">📺 {v.channel}</p>
+                <p className="text-sm text-gray-400">👁️ {v.views.toLocaleString()} views</p>
+                <p className="text-sm text-gray-400">⏱️ {v.duration}</p>
+                <p className="text-sm text-gray-400">👥 {v.subs.toLocaleString()} subs</p>
+                <p className="text-sm text-gray-400">📅 {new Date(v.published).toLocaleDateString()}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <footer className="text-center mt-10 text-xs text-gray-500 border-t border-gray-800 pt-6">
+        <p>&copy; {new Date().getFullYear()} YouTube Benchmark Tool. Built for creators & researchers.</p>
+      </footer>
     </div>
   );
 }
