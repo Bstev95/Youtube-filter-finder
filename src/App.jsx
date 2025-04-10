@@ -5,13 +5,13 @@ const MAX_RESULTS = 50;
 const MAX_PAGES = 5;
 
 export default function App() {
-  const [query, setQuery] = useState("AI");
-  const [minViews, setMinViews] = useState(1000);
-  const [maxDuration, setMaxDuration] = useState(1200);
-  const [maxSubs, setMaxSubs] = useState(15000);
-  const [publishWithinDays, setPublishWithinDays] = useState(60);
+  const [query, setQuery] = useState("");
+  const [minViews, setMinViews] = useState(0);
+  const [maxDuration, setMaxDuration] = useState(3600);
+  const [maxSubs, setMaxSubs] = useState(Infinity);
+  const [publishWithinDays, setPublishWithinDays] = useState(365);
   const [blacklist, setBlacklist] = useState("");
-  const [excludeShorts, setExcludeShorts] = useState(true);
+  const [excludeShorts, setExcludeShorts] = useState(false);
   const [videos, setVideos] = useState([]);
   const [debugStats, setDebugStats] = useState({ total: 0, filtered: 0, passed: 0 });
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,7 @@ export default function App() {
     setDebugStats({ total: 0, filtered: 0, passed: 0 });
 
     const publishedAfter = new Date(Date.now() - publishWithinDays * 86400000).toISOString();
-    const bannedWords = blacklist.toLowerCase().split(",").map((x) => x.trim());
+    const bannedWords = blacklist.toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
 
     let nextPageToken = "";
     let allVideoIds = [];
@@ -82,7 +82,6 @@ export default function App() {
           continue;
         }
 
-        // Fetch channel stats
         const channelId = video.snippet.channelId;
         const channelRes = await fetch(
           `https://www.googleapis.com/youtube/v3/channels?key=${API_KEY}&id=${channelId}&part=statistics`
@@ -121,48 +120,24 @@ export default function App() {
         <p className="text-gray-400 mb-8">Search YouTube with filters — niche channels, views, duration & more.</p>
 
         <div className="bg-gray-900 rounded-xl p-6 grid gap-4 md:grid-cols-3 mb-8">
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Search Topic</label>
-            <input className="w-full p-2 rounded bg-gray-800 text-white" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Min Views</label>
-            <input type="number" className="w-full p-2 rounded bg-gray-800 text-white" value={minViews} onChange={(e) => setMinViews(e.target.value)} />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Max Duration (sec)</label>
-            <input type="number" className="w-full p-2 rounded bg-gray-800 text-white" value={maxDuration} onChange={(e) => setMaxDuration(e.target.value)} />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Max Subscribers</label>
-            <input type="number" className="w-full p-2 rounded bg-gray-800 text-white" value={maxSubs} onChange={(e) => setMaxSubs(e.target.value)} />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Published Within (days)</label>
-            <input type="number" className="w-full p-2 rounded bg-gray-800 text-white" value={publishWithinDays} onChange={(e) => setPublishWithinDays(e.target.value)} />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">Blacklist Keywords</label>
-            <input className="w-full p-2 rounded bg-gray-800 text-white" placeholder="e.g. whatsapp, gaming" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} />
-          </div>
-          <div className="col-span-3 flex items-center space-x-2">
+          <input placeholder="Search topic" className="p-2 rounded bg-gray-800 text-white" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input type="number" placeholder="Min Views" className="p-2 rounded bg-gray-800 text-white" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} />
+          <input type="number" placeholder="Max Duration (sec)" className="p-2 rounded bg-gray-800 text-white" value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value))} />
+          <input type="number" placeholder="Max Subs" className="p-2 rounded bg-gray-800 text-white" value={maxSubs} onChange={(e) => setMaxSubs(Number(e.target.value))} />
+          <input type="number" placeholder="Published Within Days" className="p-2 rounded bg-gray-800 text-white" value={publishWithinDays} onChange={(e) => setPublishWithinDays(Number(e.target.value))} />
+          <input placeholder="Blacklist keywords (comma separated)" className="p-2 rounded bg-gray-800 text-white" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} />
+          <label className="col-span-3 flex items-center gap-2">
             <input type="checkbox" checked={excludeShorts} onChange={(e) => setExcludeShorts(e.target.checked)} />
-            <label className="text-gray-300">Exclude Shorts</label>
-          </div>
-          <div className="col-span-3">
-            <button onClick={fetchVideos} disabled={loading} className="bg-purple-600 hover:bg-purple-700 transition px-6 py-2 rounded text-white font-semibold">
-              {loading ? "Searching..." : "Search Videos"}
-            </button>
-          </div>
+            Exclude Shorts
+          </label>
+          <button onClick={fetchVideos} disabled={loading} className="bg-indigo-600 text-white py-2 rounded col-span-3">
+            {loading ? "Searching..." : "Search Videos"}
+          </button>
         </div>
 
-        <div className="text-gray-400 text-sm mb-6">
+        <div className="text-sm text-gray-400 mb-4">
           Total scanned: {debugStats.total} | Filtered out: {debugStats.filtered} | Final results: {debugStats.passed}
         </div>
-
-        {debugStats.passed === 0 && !loading && (
-          <p className="text-orange-400 mb-4">⚠️ No videos matched — try loosening filters.</p>
-        )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {videos.map((v, i) => (
@@ -171,7 +146,7 @@ export default function App() {
               href={v.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-gray-800 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition"
+              className="bg-gray-800 rounded-lg overflow-hidden shadow hover:shadow-2xl transition"
             >
               <img src={v.thumbnail} alt={v.title} className="w-full" />
               <div className="p-4">
@@ -189,3 +164,4 @@ export default function App() {
     </div>
   );
 }
+
