@@ -78,8 +78,8 @@ export default function App() {
           const isBlacklisted = bannedWords.some(word => title.includes(word));
 
           let passed = true;
-          if (minViews && views < +minViews) passed = false;
-          if (maxDuration && duration > +maxDuration) passed = false;
+          if (minViews !== '' && views < +minViews) passed = false;
+          if (maxDuration !== '' && duration > +maxDuration) passed = false;
           if (excludeShorts && isShort) passed = false;
           if (isBlacklisted) passed = false;
 
@@ -93,7 +93,7 @@ export default function App() {
           const channelData = await channelRes.json();
           const subs = +channelData.items?.[0]?.statistics?.subscriberCount || 0;
 
-          if (maxSubs && subs > +maxSubs) {
+          if (maxSubs !== '' && subs > +maxSubs) {
             filteredOut++;
             return null;
           }
