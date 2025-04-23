@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 
-const API_KEY = 'YOUR_API_KEY_HERE';
-const MAX_RESULTS = 50;
-const MAX_PAGES = 10;
+const API_KEY = 'AIzaSyC21oRlWnNmA3MCu799mhMdxnYoxby-Lo4';
+const MAX_RESULTS = 500;
+const MAX_PAGES = 100;
 
 export default function App() {
   const [query, setQuery] = useState('');
